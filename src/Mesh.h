@@ -124,6 +124,8 @@ public:
         for( unsigned int v = 0 ; v < vertices.size() ; ++v ) {
             vertices[v].position += translation;
         }
+
+        build_arrays();
     }
 
     void apply_transformation_matrix( Mat3 transform ){
@@ -131,9 +133,7 @@ public:
             vertices[v].position = transform*vertices[v].position;
         }
 
-        //        recomputeNormals();
-        //        build_positions_array();
-        //        build_normals_array();
+        build_arrays();
     }
 
     void scale( Vec3 const & scale ){
@@ -201,6 +201,7 @@ public:
     RayTriangleIntersection intersect( Ray const & ray ) const {
         RayTriangleIntersection closestIntersection;
         closestIntersection.t = FLT_MAX;
+        closestIntersection.intersectionExists = false;
         // Note :
         // Creer un objet Triangle pour chaque face
         // Vous constaterez des problemes de précision

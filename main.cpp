@@ -338,8 +338,24 @@ int main (int argc, char ** argv) {
 
 	camera.move(0., 0., -3.1);
 	selected_scene=0;
-	scenes.resize(3);
-	scenes[0].setup_single_sphere();
+	scenes.resize(7);
+
+	// Default Scene 0
+	scenes[0].setup_single_sphere(Vec3(1.f, 1.f, 1.f));
+
+	// Red sphere
+	scenes[3].setup_single_sphere(Vec3(1.f, 0.f, 0.f), Vec3(0.f, 0.f, 0.f), 2.f);
+
+	// Red sphere at (1, 0, 0)
+	scenes[4].setup_single_sphere(Vec3(1.f, 0.f, 0.f), Vec3(2.f, 0.f, 0.f), 2.f);
+
+	// Red sphere at (1, 0, 0) w/ a radius of 0.5
+	scenes[5].setup_single_sphere(Vec3(1.f, 0.f, 0.f), Vec3(2.f, 0.f, 0.f), 1.f);
+
+	// Two spheres
+	scenes[6].setup_two_spheres(Vec3(1.f, 0.f, 0.f), Vec3(2.f, 0.f, 0.f), 2.f, Vec3(0.f, 1.f, 0.f), Vec3(-2.f, 0.f, 0.f), 2.f);
+
+
 	scenes[1].setup_single_square();
 	scenes[2].setup_cornell_box();
 

@@ -60,10 +60,57 @@ public:
 
     }
 
+    void build_arrays() {
+        Mesh::build_arrays();
+        recomputeQuad();
+    }
+
+    void recomputeQuad() {
+        m_right_vector = vertices[1].position - vertices[0].position;
+        m_up_vector = vertices[3].position - vertices[0].position;
+        m_bottom_left = vertices[0].position;
+        m_normal = Vec3::cross(m_right_vector, m_up_vector);
+
+        m_right_vector.normalize();
+        m_up_vector.normalize();
+        m_normal.normalize();
+
+        vertices[0].normal = vertices[1].normal = vertices[2].normal = vertices[3].normal = m_normal;
+    }
+
     RaySquareIntersection intersect(const Ray &ray) const {
         RaySquareIntersection intersection;
+        intersection.t = FLT_MAX;
+        intersection.intersectionExists = false;
 
-        //TODO calculer l'intersection rayon quad
+        Vec3 origin = ray.origin();
+        Vec3 direction = ray.direction();
+        Vec3 point = 0.5f*(vertices[0].position + vertices[2].position);
+
+        float numerator = Vec3::dot(point - origin, m_normal);
+        float denominator = Vec3::dot(m_normal, direction);
+
+        if(denominator > -0.0001f) return intersection;
+
+        float t = numerator/denominator;
+
+        if(t > 100000.f) return intersection;
+
+        if(t < 0.0001f) return intersection;
+
+        Vec3 AB = vertices[1].position - vertices[0].position;
+        Vec3 AC = vertices[3].position - vertices[0].position;
+
+        Vec3 intersectionPoint = origin + t*direction;
+        Vec3 AM = intersectionPoint - vertices[0].position;
+
+        if(Vec3::dot(AB, AM) < 0.f || Vec3::dot(AB, AM) > Vec3::dot(AB, AB)) return intersection;
+        if(Vec3::dot(AC, AM) < 0.f || Vec3::dot(AC, AM) > Vec3::dot(AC, AC)) return intersection;
+
+        intersection.t = t;
+        intersection.intersectionExists = true;
+        intersection.intersection = intersectionPoint;
+        intersection.normal = m_normal;
 
         return intersection;
     }
