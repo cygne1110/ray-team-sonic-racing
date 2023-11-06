@@ -31,3 +31,10 @@
 *.out
 *.app
 main
+
+# Text files
+*.pdf
+*.odt
+
+# ZIP files
+*.zip

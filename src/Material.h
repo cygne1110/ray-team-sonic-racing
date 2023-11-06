@@ -18,6 +18,7 @@ struct Material {
     Vec3 ambient_material;
     Vec3 diffuse_material;
     Vec3 specular_material;
+    Vec3 color;
     double shininess;
 
     float index_medium;
@@ -29,7 +30,10 @@ struct Material {
         type = Material_Diffuse_Blinn_Phong;
         transparency = 0.0;
         index_medium = 1.0;
-        ambient_material = Vec3(0., 0., 0.);
+        color = Vec3(0., 0., 0.);
+        Vec3 ambient_material = Vec3(0.1f, 0.1f, 0.1f);
+        Vec3 diffuse_material = Vec3(0.7f, 0.7f, 0.7f);
+        Vec3 specular_material = Vec3(0.2f, 0.2f, 0.2f);
     }
 };
 

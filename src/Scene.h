@@ -9,6 +9,10 @@
 
 #include <GL/glut.h>
 
+Vec3 i_ambient = Vec3(0.1f, 0.1f, 0.1f);
+Vec3 i_diffuse = Vec3(0.7f, 0.7f, 0.7f);
+Vec3 i_specular = Vec3(0.5f, 0.5f, 0.5f);
+
 enum LightType {
 
 	LightType_Spherical,
@@ -19,6 +23,9 @@ enum LightType {
 struct Light {
 
 	Vec3 material;
+	float ambientIntensity;
+	float diffuseIntensity;
+	float specularIntensity;
 	bool isInCamSpace;
 	LightType type;
 
@@ -126,8 +133,104 @@ class Scene {
 		Vec3 rayTraceRecursive( Ray ray , int NRemainingBounces ) {
 
 			//TODO RaySceneIntersection raySceneIntersection = computeIntersection(ray);
-			Vec3 color;
-			return color;
+			RaySceneIntersection result = computeIntersection(ray);
+
+			if(NRemainingBounces == 0) {
+				Vec3 intersection;
+				switch(result.typeOfIntersectedObject) {
+					case 0:
+						intersection = result.rayMeshIntersection.intersection;
+						break;
+					case 1:
+						intersection = result.raySphereIntersection.intersection;
+						break;
+					case 2:
+						intersection = result.raySquareIntersection.intersection;
+						break;
+					default:
+						std::cerr << "rayTrace::Error, invalid object type\n";
+						exit(EXIT_FAILURE);
+				}
+				if(result.intersectionExists && (intersection - (ray.origin() + ray.direction())).length() < ray.direction().length()) return Vec3(-1.f, -1.f, -1.f);
+				return Vec3(1.f, 1.f, 1.f);
+			} else if(NRemainingBounces == 1) {
+				if(!result.intersectionExists) return Vec3(0.f, 0.f, 0.f);
+				Vec3 intersection, normal, color;
+				Vec3 k_ambient, k_diffuse, k_specular;
+				float shininess;
+
+				switch(result.typeOfIntersectedObject) {
+					case 0:
+						k_ambient = meshes[result.objectIndex].material.ambient_material;
+						k_diffuse = meshes[result.objectIndex].material.diffuse_material;
+						k_specular = meshes[result.objectIndex].material.specular_material;
+						color = meshes[result.objectIndex].material.color;
+						shininess = meshes[result.objectIndex].material.shininess;
+						intersection = result.rayMeshIntersection.intersection;
+						normal = result.rayMeshIntersection.normal;
+						break;
+					case 1:
+						k_ambient = spheres[result.objectIndex].material.ambient_material;
+						k_diffuse = spheres[result.objectIndex].material.diffuse_material;
+						k_specular = spheres[result.objectIndex].material.specular_material;
+						color = spheres[result.objectIndex].material.color;
+						shininess = spheres[result.objectIndex].material.shininess;
+						intersection = result.raySphereIntersection.intersection;
+						normal = result.raySphereIntersection.normal;
+						break;
+					case 2:
+						k_ambient = squares[result.objectIndex].material.ambient_material;
+						k_diffuse = squares[result.objectIndex].material.diffuse_material;
+						k_specular = squares[result.objectIndex].material.specular_material;
+						color = squares[result.objectIndex].material.color;
+						shininess = squares[result.objectIndex].material.shininess;
+						intersection = result.raySquareIntersection.intersection;
+						normal = result.raySquareIntersection.normal;
+						break;
+					default:
+						std::cerr << "rayTrace::Error, invalid object type\n";
+						exit(EXIT_FAILURE);
+				}
+
+				Vec3 ambient, diffuse, specular;
+				ambient = Vec3(0.f, 0.f, 0.f);
+				diffuse = Vec3(0.f, 0.f, 0.f);
+				specular = Vec3(0.f, 0.f, 0.f);
+
+				int lightsCount = lights.size();
+				int litCheck = lightsCount;
+				for(int i = 0; i < lightsCount; i++) {
+					Vec3 tmp = rayTraceRecursive(Ray(0.0001f * normal + intersection, lights[i].pos - intersection), 0);
+					if(tmp[0] < 0.f) litCheck--;
+				}
+				// if(litCheck == 0) return Vec3(0.f, 0.f, 0.f);
+
+				for(int i = 0; i < lightsCount; i++) {
+
+					ambient += lights[i].ambientIntensity * k_ambient;
+
+					Vec3 lightVector = lights[i].pos - intersection;
+					lightVector.normalize();
+
+					float d_angle = Vec3::dot(lightVector, normal);
+
+					diffuse += lights[i].diffuseIntensity * k_diffuse * d_angle * lights[i].material;
+
+					Vec3 reflectedVector = 2*Vec3::dot(lightVector, normal)*normal - lightVector;
+
+					float s_angle = Vec3::dot(reflectedVector, -1*ray.direction());
+					if(s_angle < 0) s_angle = 0;
+					else s_angle = powf(s_angle, shininess);
+
+					specular += lights[i].specularIntensity * k_specular * s_angle * lights[i].material;
+
+				}
+
+				color = Vec3::clamp(color * (ambient + (litCheck == 0 ? 0.f : 1.f)*(diffuse + specular)), 0.f, 1.f);
+				// color = Vec3::clamp(color * (ambient + diffuse + specular), 0.f, 1.f);
+
+				return color;
+			}
 
 		}
 
@@ -135,43 +238,8 @@ class Scene {
 		Vec3 rayTrace( Ray const & rayStart ) {
 
 			//TODO appeler la fonction recursive
-			RaySceneIntersection result = computeIntersection(rayStart);
-			Vec3 color, intersection, normal, res = Vec3(0.f, 0.f, 0.f);
-			if(!result.intersectionExists) return Vec3(0.f, 0.f, 0.f);
-			// std::cout << result.typeOfIntersectedObject << "\n";
-			switch(result.typeOfIntersectedObject) {
-				case 0:
-					color = meshes[result.objectIndex].material.diffuse_material;
-					intersection = result.rayMeshIntersection.intersection;
-					normal = result.rayMeshIntersection.normal;
-					break;
-				case 1:
-					color = spheres[result.objectIndex].material.diffuse_material;
-					intersection = result.raySphereIntersection.intersection;
-					normal = result.raySphereIntersection.normal;
-					break;
-				case 2:
-					color = squares[result.objectIndex].material.diffuse_material;
-					intersection = result.raySquareIntersection.intersection;
-					normal = result.raySquareIntersection.normal;
-					break;
-				default:
-					std::cerr << "rayTrace::Error, invalid object type\n";
-					exit(EXIT_FAILURE);
-			}
-			float diffuse = 0.8f;
-			float ambient = 0.2f;
-			int lightsCount = lights.size();
-			for(int i = 0; i < lightsCount; i++) {
-				Vec3 lightVector = lights[i].pos - intersection;
-				lightVector.normalize();
-				float angle = Vec3::dot(lightVector, normal);
-				res += color * diffuse * angle;
-			}
-
-			res += color * ambient;
-			//res.normalize();
-			return res;
+			Vec3 color = rayTraceRecursive(rayStart, 1);
+			return color;
 
 		}
 
@@ -190,6 +258,9 @@ class Scene {
 				light.powerCorrection = 2.f;
 				light.type = LightType_Spherical;
 				light.material = Vec3(1., 1., 1.);
+				light.ambientIntensity = 1.f;
+				light.diffuseIntensity = 1.f;
+				light.specularIntensity = 1.f;
 				light.isInCamSpace = false; 
 			}
 
@@ -200,8 +271,10 @@ class Scene {
 				s.m_radius = radius;
 				s.build_arrays();
 				s.material.type = Material_Mirror;
-				s.material.diffuse_material = color;
-				s.material.specular_material = Vec3(0.2, 0.2, 0.2);
+				s.material.color = color;
+				s.material.ambient_material = i_ambient;
+        		s.material.diffuse_material = i_diffuse;
+        		s.material.specular_material = i_specular;
 				s.material.shininess = 20;
 			}
 
@@ -222,6 +295,9 @@ class Scene {
 				light.powerCorrection = 2.f;
 				light.type = LightType_Spherical;
 				light.material = Vec3(1., 1., 1.);
+				light.ambientIntensity = 1.f;
+				light.diffuseIntensity = 1.f;
+				light.specularIntensity = 1.f;
 				light.isInCamSpace = false; 
 			}
 
@@ -232,8 +308,10 @@ class Scene {
 				s.m_radius = radius1;
 				s.build_arrays();
 				s.material.type = Material_Mirror;
-				s.material.diffuse_material = color1;
-				s.material.specular_material = Vec3(0.2, 0.2, 0.2);
+				s.material.color = color1;
+				s.material.ambient_material = i_ambient;
+        		s.material.diffuse_material = i_diffuse;
+        		s.material.specular_material = i_specular;
 				s.material.shininess = 20;
 			}
 
@@ -244,8 +322,10 @@ class Scene {
 				s.m_radius = radius2;
 				s.build_arrays();
 				s.material.type = Material_Mirror;
-				s.material.diffuse_material = color2;
-				s.material.specular_material = Vec3(0.2, 0.2, 0.2);
+				s.material.color = color2;
+				s.material.ambient_material = i_ambient;
+        		s.material.diffuse_material = i_diffuse;
+        		s.material.specular_material = i_specular;
 				s.material.shininess = 20;
 			}
 
@@ -266,6 +346,9 @@ class Scene {
 				light.powerCorrection = 2.f;
 				light.type = LightType_Spherical;
 				light.material = Vec3(1., 1., 1.);
+				light.ambientIntensity = 1.f;
+				light.diffuseIntensity = 1.f;
+				light.specularIntensity = 1.f;
 				light.isInCamSpace = false;
 			}
 
@@ -274,8 +357,10 @@ class Scene {
 				Square & s = squares[squares.size() - 1];
 				s.setQuad(Vec3(-1., -1., 0.), Vec3(1., 0., 0.), Vec3(0., 1., 0.), 2., 2.);
 				s.build_arrays();
-				s.material.diffuse_material = Vec3(0.8, 0.8, 0.8);
-				s.material.specular_material = Vec3(0.8, 0.8, 0.8);
+				s.material.color = Vec3(0.8, 0.8, 0.8);
+				s.material.ambient_material = i_ambient;
+        		s.material.diffuse_material = i_diffuse;
+        		s.material.specular_material = i_specular;
 				s.material.shininess = 20;
 			}
 
@@ -295,18 +380,10 @@ class Scene {
 			light.radius = 2.5f;
 			light.powerCorrection = 2.f;
 			light.type = LightType_Spherical;
-			light.material = Vec3(1., 0., 0.);
-			light.isInCamSpace = false;
-		}
-
-		{
-			lights.resize(lights.size() + 1);
-			Light &light = lights[lights.size() - 1];
-			light.pos = Vec3(0.0, 1.0, 0.0);
-			light.radius = 2.5f;
-			light.powerCorrection = 2.f;
-			light.type = LightType_Spherical;
-			light.material = Vec3(0., 0., 1.);
+			light.material = Vec3(1., 1., 1.);
+			light.ambientIntensity = 1.f;
+			light.diffuseIntensity = 1.f;
+			light.specularIntensity = 1.f;
 			light.isInCamSpace = false;
 		}
 
@@ -317,8 +394,10 @@ class Scene {
 			s.scale(Vec3(2., 2., 1.));
 			s.translate(Vec3(0., 0., -2.));
 			s.build_arrays();
-			s.material.diffuse_material = Vec3(0., 1., 1.);
-			s.material.specular_material = Vec3(0., 1., 1.);
+			s.material.color = Vec3(0., 1., 1.);
+			s.material.ambient_material = i_ambient;
+        	s.material.diffuse_material = i_diffuse;
+        	s.material.specular_material = i_specular;
 			s.material.shininess = 16;
 		}
 
@@ -331,8 +410,10 @@ class Scene {
 			s.translate(Vec3(0., 0., -2.));
 			s.rotate_y(90);
 			s.build_arrays();
-			s.material.diffuse_material = Vec3(1., 0., 0.);
-			s.material.specular_material = Vec3(1., 0., 0.);
+			s.material.color = Vec3(1., 0., 0.);
+			s.material.ambient_material = i_ambient;
+        	s.material.diffuse_material = i_diffuse;
+        	s.material.specular_material = i_specular;
 			s.material.shininess = 16;
 		}
 
@@ -344,8 +425,10 @@ class Scene {
 			s.scale(Vec3(2., 2., 1.));
 			s.rotate_y(-90);
 			s.build_arrays();
-			s.material.diffuse_material = Vec3(0.0, 1.0, 0.0);
-			s.material.specular_material = Vec3(0.0, 1.0, 0.0);
+			s.material.color = Vec3(0.0, 1.0, 0.0);
+			s.material.ambient_material = i_ambient;
+        	s.material.diffuse_material = i_diffuse;
+        	s.material.specular_material = i_specular;
 			s.material.shininess = 16;
 		}
 
@@ -357,8 +440,10 @@ class Scene {
 			s.scale(Vec3(2., 2., 1.));
 			s.rotate_x(-90);
 			s.build_arrays();
-			s.material.diffuse_material = Vec3(1.0, 1.0, 1.0);
-			s.material.specular_material = Vec3(1.0, 1.0, 1.0);
+			s.material.color = Vec3(1.0, 1.0, 1.0);
+			s.material.ambient_material = i_ambient;
+        	s.material.diffuse_material = i_diffuse;
+        	s.material.specular_material = i_specular;
 			s.material.shininess = 16;
 		}
 
@@ -370,12 +455,13 @@ class Scene {
 			s.scale(Vec3(2., 2., 1.));
 			s.rotate_x(90);
 			s.build_arrays();
-			s.material.diffuse_material = Vec3(1.0, 0.0, 1.0);
-			s.material.specular_material = Vec3(1.0, 0.0, 1.0);
+			s.material.color = Vec3(1.0, 0.0, 1.0);
+			s.material.ambient_material = i_ambient;
+        	s.material.diffuse_material = i_diffuse;
+        	s.material.specular_material = i_specular;
 			s.material.shininess = 16;
 		}
 
-		/*
 		{ // Front Wall
 			squares.resize(squares.size() + 1);
 			Square &s = squares[squares.size() - 1];
@@ -384,11 +470,12 @@ class Scene {
 			s.scale(Vec3(2., 2., 1.));
 			s.rotate_y(180);
 			s.build_arrays();
-			s.material.diffuse_material = Vec3(1.0, 1.0, 1.0);
-			s.material.specular_material = Vec3(1.0, 1.0, 1.0);
+			s.material.color = Vec3(1.0, 1.0, 1.0);
+			s.material.ambient_material = i_ambient;
+        	s.material.diffuse_material = i_diffuse;
+        	s.material.specular_material = i_specular;
 			s.material.shininess = 16;
 		}
-		*/
 
 		{ // GLASS Sphere
 
@@ -398,8 +485,10 @@ class Scene {
 			s.m_radius = 0.75f;
 			s.build_arrays();
 			s.material.type = Material_Mirror;
-			s.material.diffuse_material = Vec3(1., 0., 0.);
-			s.material.specular_material = Vec3(1., 0., 0.);
+			s.material.color = Vec3(1., 0., 0.);
+			s.material.ambient_material = i_ambient;
+        	s.material.diffuse_material = i_diffuse;
+        	s.material.specular_material = i_specular;
 			s.material.shininess = 16;
 			s.material.transparency = 1.0;
 			s.material.index_medium = 1.4;
@@ -413,8 +502,10 @@ class Scene {
 			s.m_radius = 0.75f;
 			s.build_arrays();
 			s.material.type = Material_Glass;
-			s.material.diffuse_material = Vec3(1., 1., 0.);
-			s.material.specular_material = Vec3(1., 1., 0.);
+			s.material.color = Vec3(1., 1., 0.);
+			s.material.ambient_material = i_ambient;
+        	s.material.diffuse_material = i_diffuse;
+        	s.material.specular_material = i_specular;
 			s.material.shininess = 16;
 			s.material.transparency = 0.;
 			s.material.index_medium = 0.;

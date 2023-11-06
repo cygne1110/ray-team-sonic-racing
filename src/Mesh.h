@@ -170,9 +170,9 @@ public:
 
     void draw() const {
         if( triangles_array.size() == 0 ) return;
-        GLfloat material_color[4] = {material.diffuse_material[0],
-                                     material.diffuse_material[1],
-                                     material.diffuse_material[2],
+        GLfloat material_color[4] = {material.color[0],
+                                     material.color[1],
+                                     material.color[2],
                                      1.0};
 
         GLfloat material_specular[4] = {material.specular_material[0],

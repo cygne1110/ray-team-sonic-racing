@@ -8,6 +8,7 @@
 class Vec3;
 static inline Vec3 operator + (Vec3 const & a , Vec3 const & b);
 static inline Vec3 operator * (float a , Vec3 const & b);
+static inline Vec3 operator * (Vec3 const & a , Vec3 const & b);
 
 class Vec3 {
 private:
@@ -34,6 +35,13 @@ public:
     void normalize() { float L = length(); mVals[0] /= L; mVals[1] /= L; mVals[2] /= L; }
     static float dot( Vec3 const & a , Vec3 const & b ) {
        return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+    }
+    static Vec3 clamp(Vec3 const & a, float b, float c) {
+        return Vec3 (
+            a[0] < b ? b : (a[0] > c ? c : a[0]), 
+            a[1] < b ? b : (a[1] > c ? c : a[1]),
+            a[2] < b ? b : (a[2] > c ? c : a[2])
+        );
     }
     static Vec3 cross( Vec3 const & a , Vec3 const & b ) {
        return Vec3( a[1]*b[2] - a[2]*b[1] ,
@@ -97,6 +105,9 @@ static inline Vec3 operator * (float a , Vec3 const & b) {
 }
 static inline Vec3 operator * (Vec3 const & b , float a ) {
    return Vec3(a*b[0] , a*b[1] , a*b[2]);
+}
+static inline Vec3 operator * (Vec3 const & a, Vec3 const & b) {
+    return Vec3(a[0]*b[0], a[1]*b[1], a[2]*b[2]);
 }
 static inline Vec3 operator / (Vec3 const &  a , float b) {
    return Vec3(a[0]/b , a[1]/b , a[2]/b);
